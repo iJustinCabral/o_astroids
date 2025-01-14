@@ -1,8 +1,9 @@
 ## TODO List (.Plan Style)
 
-*Set up game scenes
-*Draw Score Text
-*Implement Start Menu Scene
+### -= 01/13/2025 =-
+*Set up game scenes  
+*Draw Score Text  
+*Implement Start Menu Scene  
 
 Draw Asteroids  
 Add random astroids to start menu  
