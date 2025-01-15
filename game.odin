@@ -17,19 +17,23 @@ Scene :: enum {
 }
 
 Ship :: struct {
-
+    pos: rl.Vector2,
+    velocity: rl.Vector2
 }
 
 Astroid :: struct {
-
+    pos: rl.Vector2,
+    velocity: rl.Vector2,
 }
 
 Alien :: struct {
-
+    pos: rl.Vector2,
+    velocity: rl.Vector2
 }
 
 Particle :: struct {
-
+    pos: rl.Vector2,
+    velocity: rl.Vector2
 }
 
 GameMemory :: struct {
@@ -117,6 +121,7 @@ scene_menu :: proc(mem: ^GameMemory) -> Scene {
 scene_start :: proc(mem: ^GameMemory) -> Scene {
 
     for !rl.WindowShouldClose() {
+
 	rl.BeginDrawing()
 	defer rl.EndDrawing()
 
@@ -130,8 +135,6 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 	high_score_str := fmt.ctprintf("%02d", mem.high_score)
 	hs_str_width := rl.MeasureText(high_score_str, 14)
 	rl.DrawText(high_score_str, CENTER_X - (hs_str_width / 2), 10, 14, rl.WHITE)
-
-	rl.DrawText("00", WINDOW_WIDTH * 0.8, 10, 24, rl.WHITE)
 
     }
 
