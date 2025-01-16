@@ -34,7 +34,7 @@ Add alien sound FX
 Draw Asteroids  
 Add random astroids to start menu  
 -Add Player 1 Text with wait time on start screen  
-Draw Ship  
+-Draw Ship  
 Add movement to ship  
 Wrap ship around the screen bounds on exit  
 Make ship shoot small particles  
@@ -58,11 +58,12 @@ Add alien sound FX
 *Add Player 1 Text with wait time on menu screen 
 *Created a line builder  
 *Drawing players' remaining lives  
+*Draw Ship  
+*Add movement to ship  
+*Add rotation to ship  
 
 Draw Asteroids  
 Add random astroids to start menu  
-Draw Ship  
-Add movement to ship  
 Wrap ship around the screen bounds on exit  
 Make ship shoot small particles  
 Make asteroids detect particle hit  

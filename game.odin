@@ -11,8 +11,10 @@ CENTER_X      :: WINDOW_WIDTH / 2
 CENTER_Y      :: WINDOW_HEIGHT / 2
 THICKNESS     :: 2.5
 SCALE         :: 28
-DRAG          :: 1.5
-SHIP_LINES :: []rl.Vector2 {
+DRAG          :: 0.02
+SHIP_SPEED    :: 20
+ROT_SPEED     :: 2
+SHIP_LINES    :: []rl.Vector2 {
     rl.Vector2{-0.4, -0.5},
     rl.Vector2{0.0, 0.5},
     rl.Vector2{0.4, -0.5},
@@ -103,9 +105,10 @@ reset_game :: proc(mem: ^GameMemory) {
     mem.high_score = 0
     mem.lives = 3
     mem.game_over = true
+    mem.ship = Ship{pos = {CENTER_X, CENTER_Y}, rotation = 0.0, velocity = {0,0}}
 }
 
-// Game Scenes (Our game loops)
+// --------------- Game Scenes (Our game loops) -------------------
 scene_menu :: proc(mem: ^GameMemory) -> Scene {
 
     delay_time : f32 = 2.0
@@ -170,6 +173,29 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 
     for !rl.WindowShouldClose() {
 
+	angle := mem.ship.rotation + (math.PI * 0.5)
+	direction : rl.Vector2 = {math.cos(angle), math.sin(angle)}
+
+	// Input 
+	if rl.IsKeyDown(.W) {
+	    mem.ship.velocity = mem.ship.velocity + (direction * (rl.GetFrameTime() * SHIP_SPEED))
+	    // TODO: Play Sound when the ship moves
+	}
+
+	if rl.IsKeyDown(.A) {
+	    mem.ship.rotation -= rl.GetFrameTime() * math.TAU * ROT_SPEED
+	}
+
+	if rl.IsKeyDown(.D) {
+	    mem.ship.rotation += rl.GetFrameTime() * math.TAU * ROT_SPEED
+	}
+	
+	mem.ship.velocity = mem.ship.velocity * (1.0 - DRAG)
+	mem.ship.pos = mem.ship.pos + mem.ship.velocity
+	// Update
+
+
+
 	rl.BeginDrawing()
 	defer rl.EndDrawing()
 
@@ -185,6 +211,7 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 	rl.DrawText(high_score_str, CENTER_X - (hs_str_width / 2), 10, 14, rl.WHITE)
 
 	draw_remaining_lives(mem)
+	draw_ship(mem)
     }
 
     return .Start
@@ -216,11 +243,23 @@ draw_lines :: proc(o: rl.Vector2, s: f32, r: f32, points: []rl.Vector2, connect:
 draw_remaining_lives :: proc(mem: ^GameMemory) {
     for i in 0..<mem.lives {
 	draw_lines(
-	    rl.Vector2{CENTER_X, CENTER_Y},
+	    {WINDOW_WIDTH * 0.8 + f32(i) * SCALE, SCALE},
 	    SCALE,
 	    math.PI,
 	    SHIP_LINES,
 	    true,
+	)
+    }
+}
+
+draw_ship :: proc(mem: ^GameMemory) {
+    if !mem.ship.is_dead {
+	draw_lines(
+	    mem.ship.pos,
+	    SCALE,
+	    mem.ship.rotation,
+	    SHIP_LINES,
+	    true
 	)
     }
 }
