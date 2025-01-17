@@ -11,15 +11,20 @@ CENTER_X      :: WINDOW_WIDTH / 2
 CENTER_Y      :: WINDOW_HEIGHT / 2
 THICKNESS     :: 2.5
 SCALE         :: 28
-DRAG          :: 0.015
+DRAG          :: 0.02
 SHIP_SPEED    :: 20
 ROT_SPEED     :: 2
 SHIP_LINES    :: []rl.Vector2 {
-    rl.Vector2{-0.4, -0.5},
-    rl.Vector2{0.0, 0.5},
-    rl.Vector2{0.4, -0.5},
-    rl.Vector2{0.3, -0.4},
-    rl.Vector2{-0.3, -0.4}
+    {-0.4, -0.5},
+    {0.0, 0.5},
+    {0.4, -0.5},
+    {0.3, -0.4},
+    {-0.3, -0.4}
+}
+THRUST_LINES ::[]rl.Vector2 {
+    {-0.3, -0.4},
+    {-0.0, -1.0},
+    {0.3, -0.4}
 }
 
 
@@ -31,7 +36,7 @@ Scene :: enum {
 }
 
 Entity :: struct {
-    pos: rl.Vector2,
+    position: rl.Vector2,
     velocity: rl.Vector2,
     id: int,
 }
@@ -43,7 +48,7 @@ Ship :: struct {
 }
 
 Astroid :: struct {
-   using entity: Entity, 
+    using entity: Entity,
 }
 
 Alien :: struct {
@@ -56,6 +61,11 @@ Particle :: struct {
 
 Projectile :: struct {
     using entity: Entity,
+}
+
+Sound :: struct {
+    blaster: rl.Sound,
+    thurst: rl.Sound
 }
 
 LineBuilder :: struct {
@@ -108,7 +118,7 @@ reset_game :: proc(mem: ^GameMemory) {
     mem.high_score = 0
     mem.lives = 3
     mem.game_over = true
-    mem.ship = Ship{pos = {CENTER_X, CENTER_Y}, rotation = 0.0, velocity = {0,0}}
+    mem.ship = Ship{position = {CENTER_X, CENTER_Y}, rotation = math.PI, velocity = {0,0}}
 }
 
 // --------------- Game Scenes (Our game loops) -------------------
@@ -179,31 +189,50 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 	angle := mem.ship.rotation + (math.PI * 0.5)
 	direction : rl.Vector2 = {math.cos(angle), math.sin(angle)}
 
-	// Input 
-	if rl.IsKeyDown(.W) {
-	    mem.ship.velocity += (direction * (rl.GetFrameTime() * SHIP_SPEED))
-	    // TODO: Play Sound when the ship moves
+	// Input
+	if !mem.ship.is_dead {
+	    if rl.IsKeyDown(.W) {
+		mem.ship.velocity += (direction * (rl.GetFrameTime() * SHIP_SPEED))
+		
+		if mem.frame % 2 == 0 {
+		// TODO: Play Sound when the ship moves
+		}
+	    }
+
+	    if rl.IsKeyDown(.A) {
+		mem.ship.rotation -= rl.GetFrameTime() * math.TAU * ROT_SPEED
+	    }
+
+	    if rl.IsKeyDown(.D) {
+		mem.ship.rotation += rl.GetFrameTime() * math.TAU * ROT_SPEED
+	    }
+	    
+	    // Updates
+	    mem.ship.velocity *= (1.0 - DRAG)
+	    mem.ship.position += mem.ship.velocity - DRAG
+
+	    // Screen wrap the ship when it leaves the bounds
+	    if mem.ship.position.x < 0 {
+		mem.ship.position.x = WINDOW_WIDTH
+	    } 
+	    else if mem.ship.position.x > WINDOW_WIDTH {
+		mem.ship.position.x = 0
+	    }
+
+	    if mem.ship.position.y < 0 {
+		mem.ship.position.y = WINDOW_HEIGHT
+	    }
+	    else if mem.ship.position.y > WINDOW_HEIGHT {
+		mem.ship.position.y = 0
+	    }
 	}
 
-	if rl.IsKeyDown(.A) {
-	    mem.ship.rotation -= rl.GetFrameTime() * math.TAU * ROT_SPEED
-	}
-
-	if rl.IsKeyDown(.D) {
-	    mem.ship.rotation += rl.GetFrameTime() * math.TAU * ROT_SPEED
-	}
-	
-	mem.ship.velocity *= (1.0 - DRAG)
-	mem.ship.pos += mem.ship.velocity - DRAG
-	mem.frame += 1
-
-
+	// Drawing
 	rl.BeginDrawing()
 	defer rl.EndDrawing()
 
 	rl.ClearBackground(rl.BLACK)
 
-	// Score UI
 	score_str := fmt.ctprintf("%02d", mem.score)
 	score_str_width := rl.MeasureText(score_str, 24)
 	rl.DrawText(score_str, WINDOW_WIDTH * 0.2 - (score_str_width / 2), 10, 24, rl.WHITE)
@@ -214,6 +243,8 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 
 	draw_remaining_lives(mem)
 	draw_ship(mem)
+
+	mem.frame += 1
     }
 
     return .Start
@@ -257,11 +288,21 @@ draw_remaining_lives :: proc(mem: ^GameMemory) {
 draw_ship :: proc(mem: ^GameMemory) {
     if !mem.ship.is_dead {
 	draw_lines(
-	    mem.ship.pos,
+	    mem.ship.position,
 	    SCALE,
 	    mem.ship.rotation,
 	    SHIP_LINES,
 	    true
 	)
+    }
+
+    if rl.IsKeyDown(.W) && mem.frame % 2 == 0 {
+	draw_lines(
+	    mem.ship.position,
+	    SCALE,
+	    mem.ship.rotation,
+	    THRUST_LINES,
+	    true
+	)  
     }
 }

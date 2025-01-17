@@ -64,7 +64,7 @@ Add alien sound FX
 
 Draw Asteroids  
 Add random astroids to start menu  
-Wrap ship around the screen bounds on exit  
+-Wrap ship around the screen bounds on exit  
 Make ship shoot small particles  
 Make asteroids detect particle hit  
 Make asteroids break up into smaller pieces  
@@ -83,10 +83,11 @@ Add alien sound FX
 ### -= 01/16/2025 =-
 
 *Refined ship movement with drag when key released  
+*Wrap ship around the screen boudns on exit  
+*Draw thrust lines behind ship  
 
 Draw Asteroids  
 Add random astroids to start menu  
-Wrap ship around the screen bounds on exit  
 Make ship shoot small particles  
 Make asteroids detect particle hit  
 Make asteroids break up into smaller pieces  
