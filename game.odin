@@ -11,7 +11,7 @@ CENTER_X      :: WINDOW_WIDTH / 2
 CENTER_Y      :: WINDOW_HEIGHT / 2
 THICKNESS     :: 2.5
 SCALE         :: 28
-DRAG          :: 0.02
+DRAG          :: 0.015
 SHIP_SPEED    :: 20
 ROT_SPEED     :: 2
 SHIP_LINES    :: []rl.Vector2 {
@@ -70,6 +70,7 @@ GameMemory :: struct {
     high_score: int,
     lives: int,
     game_over: bool,
+    frame: int,
     ship: Ship,
     alien: Alien,
     asteroids: [dynamic] Astroid,
@@ -80,6 +81,8 @@ mem : GameMemory = GameMemory{}
 
 main :: proc() {
     rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Astroids")
+    rl.SetTargetFPS(60)
+
     defer rl.CloseWindow()
     defer free_all(context.temp_allocator)
 
@@ -178,7 +181,7 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 
 	// Input 
 	if rl.IsKeyDown(.W) {
-	    mem.ship.velocity = mem.ship.velocity + (direction * (rl.GetFrameTime() * SHIP_SPEED))
+	    mem.ship.velocity += (direction * (rl.GetFrameTime() * SHIP_SPEED))
 	    // TODO: Play Sound when the ship moves
 	}
 
@@ -190,10 +193,9 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 	    mem.ship.rotation += rl.GetFrameTime() * math.TAU * ROT_SPEED
 	}
 	
-	mem.ship.velocity = mem.ship.velocity * (1.0 - DRAG)
-	mem.ship.pos = mem.ship.pos + mem.ship.velocity
-	// Update
-
+	mem.ship.velocity *= (1.0 - DRAG)
+	mem.ship.pos += mem.ship.velocity - DRAG
+	mem.frame += 1
 
 
 	rl.BeginDrawing()
