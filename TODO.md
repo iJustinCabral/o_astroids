@@ -21,10 +21,10 @@ Implement random movement for alien
 Make alient shoot in random direction  
 Implement a high score system  
 Handle game over  
-Add shooting sound FX
-Add movment sound FX
-Add death sound FX
-Add alien sound FX
+Add shooting sound FX  
+Add movment sound FX  
+Add death sound FX  
+Add alien sound FX  
 
 ### -= 01/14/2025 =-
 
@@ -33,8 +33,8 @@ Add alien sound FX
 
 Draw Asteroids  
 Add random astroids to start menu  
--Add Player 1 Text with wait time on start screen  
--Draw Ship  
++Add Player 1 Text with wait time on start screen  
++Draw Ship  
 Add movement to ship  
 Wrap ship around the screen bounds on exit  
 Make ship shoot small particles  
@@ -47,10 +47,10 @@ Implement random movement for alien
 Make alient shoot in random direction  
 Implement a high score system  
 Handle game over  
-Add shooting sound FX
-Add movment sound FX
-Add death sound FX
-Add alien sound FX
+Add shooting sound FX  
+Add movment sound FX  
+Add death sound FX  
+Add alien sound FX  
 
 ### -= 01/15/2025 =-
 
@@ -64,7 +64,7 @@ Add alien sound FX
 
 Draw Asteroids  
 Add random astroids to start menu  
--Wrap ship around the screen bounds on exit  
++Wrap ship around the screen bounds on exit  
 Make ship shoot small particles  
 Make asteroids detect particle hit  
 Make asteroids break up into smaller pieces  
@@ -88,7 +88,7 @@ Add alien sound FX
 
 Draw Asteroids  
 Add random astroids to start menu  
-Make ship shoot small particles  
++Make ship shoot small particles  
 Make asteroids detect particle hit  
 Make asteroids break up into smaller pieces  
 Wrap asteroids around the screen bounds  
@@ -102,4 +102,26 @@ Add shooting sound FX
 Add movment sound FX  
 Add death sound FX  
 Add alien sound FX  
+
+### -= 01/17/2025 =-
+
+*Make ship shoot small projectiles  
+*Make ship bullets wrap around the screen  
+
+Draw Asteroids  
+Add random astroids to start menu  
+Make asteroids detect particle hit  
+Make asteroids break up into smaller pieces  
+Wrap asteroids around the screen bounds  
+Add player collision into astroid  
+Draw Alien  
+Implement random movement for alien  
+Make alient shoot in random direction  
+Implement a high score system  
+Handle game over  
+Add shooting sound FX  
+Add movment sound FX  
+Add death sound FX  
+Add alien sound FX  
+
 

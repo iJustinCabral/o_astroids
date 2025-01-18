@@ -2,6 +2,7 @@ package game
 
 import    "core:fmt"
 import    "core:math"
+import    "core:math/rand"
 import rl "vendor:raylib"
 
 // Constants
@@ -26,6 +27,10 @@ THRUST_LINES ::[]rl.Vector2 {
     {-0.0, -1.0},
     {0.3, -0.4}
 }
+ASTEROID_VERTICES :: [][]rl.Vector2 {
+    { {0.5, 0.5}, {-0.5, 0.5}, {-0.5, -0.5}, {0.5, -0.5} }, // Square-like
+    { {0.0, 0.5}, {-0.5, 0.0}, {0.0, -0.5}, {0.5, 0.0} }, // Diamond-like
+}
 
 
 // Define Types & Structures
@@ -49,18 +54,35 @@ Ship :: struct {
 
 Astroid :: struct {
     using entity: Entity,
+    type: AstroidType,
+    size: f32,
+    score: int,
+    speed: int,
+    did_remove: bool,
+    vertices: []rl.Vector2
 }
 
-Alien :: struct {
-    using entity: Entity,    
+AstroidType :: enum {
+    BIG,
+    MEDIUM,
+    SMALL
 }
 
 Particle :: struct {
     using entity: Entity,
+    ttl: f32,
+}
+
+ParticleType :: enum {
+    LINE,
+    DOT,
 }
 
 Projectile :: struct {
     using entity: Entity,
+    ttl: f64,
+    spawn_t: f64,
+    did_remove: bool,
 }
 
 Sound :: struct {
@@ -82,9 +104,9 @@ GameMemory :: struct {
     game_over: bool,
     frame: int,
     ship: Ship,
-    alien: Alien,
     asteroids: [dynamic] Astroid,
     projectiles: [dynamic] Projectile,
+    particles: [dynamic] Particle
 }
 
 mem : GameMemory = GameMemory{}
@@ -111,7 +133,7 @@ main :: proc() {
     }
 }
 
-// Reset State
+// -------------- Misc. Functions ------------------
 reset_game :: proc(mem: ^GameMemory) {
     mem.scene = .Menu
     mem.score = 0
@@ -119,6 +141,22 @@ reset_game :: proc(mem: ^GameMemory) {
     mem.lives = 3
     mem.game_over = true
     mem.ship = Ship{position = {CENTER_X, CENTER_Y}, rotation = math.PI, velocity = {0,0}}
+}
+
+shoot_projectile :: proc(mem: ^GameMemory) {
+    angle := mem.ship.rotation + (math.PI * 0.5)
+    direction := rl.Vector2{math.cos(angle), math.sin(angle)}
+    velocity := direction * SHIP_SPEED * 20.0
+
+    projectile := Projectile {
+	position = mem.ship.position,
+	velocity = velocity,
+	ttl = 3.0,
+	spawn_t = rl.GetTime(),
+	did_remove = false 
+    }
+
+    append(&mem.projectiles, projectile) 
 }
 
 // --------------- Game Scenes (Our game loops) -------------------
@@ -206,6 +244,10 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 	    if rl.IsKeyDown(.D) {
 		mem.ship.rotation += rl.GetFrameTime() * math.TAU * ROT_SPEED
 	    }
+
+	    if rl.IsKeyPressed(.SPACE) {
+		shoot_projectile(mem)
+	    }
 	    
 	    // Updates
 	    mem.ship.velocity *= (1.0 - DRAG)
@@ -227,6 +269,8 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 	    }
 	}
 
+	update_projectile(mem)
+
 	// Drawing
 	rl.BeginDrawing()
 	defer rl.EndDrawing()
@@ -243,6 +287,7 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 
 	draw_remaining_lives(mem)
 	draw_ship(mem)
+	draw_projectile(mem)
 
 	mem.frame += 1
     }
@@ -252,6 +297,33 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 
 scene_game_over :: proc(mem: ^GameMemory) -> Scene {
     return .GameOver
+}
+
+update_projectile :: proc(mem: ^GameMemory) {
+    to_remove := make([dynamic]int, context.temp_allocator)
+    current_time := rl.GetTime()
+
+    for i in 0..<len(mem.projectiles) {
+        p := &mem.projectiles[i]
+        p.position += p.velocity * rl.GetFrameTime()
+
+        // Screen wrapping
+        if p.position.x < 0 { p.position.x = WINDOW_WIDTH }
+        else if p.position.x > WINDOW_WIDTH { p.position.x = 0 }
+        
+        if p.position.y < 0 { p.position.y = WINDOW_HEIGHT }
+        else if p.position.y > WINDOW_HEIGHT { p.position.y = 0 }
+
+        // Check if projectile should be removed
+        if current_time - p.spawn_t >= p.ttl {
+            append(&to_remove, i)
+        }
+    }
+
+    // Remove expired projectiles
+    for i in 0..<len(to_remove) {
+        ordered_remove(&mem.projectiles, to_remove[len(to_remove) - i - 1])
+    }
 }
 
 // -------- Rendering ----------
@@ -304,5 +376,11 @@ draw_ship :: proc(mem: ^GameMemory) {
 	    THRUST_LINES,
 	    true
 	)  
+    }
+}
+
+draw_projectile :: proc(mem: ^GameMemory) {
+    for projectile in mem.projectiles {
+	rl.DrawCircleV(projectile.position, 2, rl.WHITE)
     }
 }
