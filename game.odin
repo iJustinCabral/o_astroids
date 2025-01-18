@@ -28,6 +28,7 @@ THRUST_LINES ::[]rl.Vector2 {
     {0.3, -0.4}
 }
 
+
 // Define Types & Structures
 Scene :: enum {
     Menu,
@@ -45,6 +46,7 @@ Ship :: struct {
     using entity: Entity,
     rotation: f32,
     is_dead: bool,
+    death_time: f64,
 }
 
 Asteroid :: struct {
@@ -72,7 +74,8 @@ Projectile :: struct {
 
 Sound :: struct {
     blaster: rl.Sound,
-    thrust: rl.Sound
+    thrust: rl.Sound,
+    explode: rl.Sound
 }
 
 LineBuilder :: struct {
@@ -109,6 +112,8 @@ main :: proc() {
     reset_game(&mem)
     sound.blaster = rl.LoadSound("blaster.wav")
     sound.thrust = rl.LoadSound("thrust.wav")
+    sound.explode = rl.LoadSound("explode.wav")
+    
 
     for !rl.WindowShouldClose() {
 	switch mem.scene {
@@ -126,12 +131,16 @@ main :: proc() {
 reset_game :: proc(mem: ^GameMemory) {
     mem.scene = .Menu
     mem.score = 0
-    mem.high_score = 0
+    mem.high_score = max(mem.high_score, mem.score)
     mem.lives = 3
     mem.game_over = true
     mem.ship = Ship{position = {CENTER_X, CENTER_Y}, rotation = math.PI, velocity = {0,0}}
-    
-    for i in 0..<5 {
+    mem.ship.is_dead = false
+    mem.ship.death_time = 0
+   
+    clear_dynamic_array(&mem.asteroids)
+
+    for i in 0..<7 {
 	asteroid := create_asteroid({rand.float32_range(10, WINDOW_WIDTH), rand.float32_range(10, WINDOW_HEIGHT)}, .BIG)
 	append(&mem.asteroids, asteroid)
     }
@@ -159,6 +168,7 @@ scene_menu :: proc(mem: ^GameMemory) -> Scene {
     delay_time : f32 = 2.0
     timer : f32 = 0.0
     show_player1 := false
+    reset_game(mem)
 
     for !rl.WindowShouldClose() {
 
@@ -174,8 +184,6 @@ scene_menu :: proc(mem: ^GameMemory) -> Scene {
 		return .Start
 	    }
 	}
-
-	update_asteroids(mem)
 
 	rl.BeginDrawing()
 	defer rl.EndDrawing()
@@ -210,8 +218,6 @@ scene_menu :: proc(mem: ^GameMemory) -> Scene {
 	copyright_str := fmt.ctprintf("©")
 	copy_str_width := rl.MeasureText(copyright_str, 24)
 	rl.DrawText(copyright_str, CENTER_X - company_str_width / 2 - copy_str_width, WINDOW_HEIGHT - 50, 24, rl.WHITE)
-
-	draw_asteroids(mem)	
 
     }
 
@@ -248,11 +254,15 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 		rl.PlaySound(sound.blaster)
 	    }
 
-	    update_ship(mem)
-	    update_projectile(mem)
-	    update_asteroids(mem)
-	    
 	}
+	else if mem.ship.is_dead && mem.lives == 0 {
+	    mem.high_score = mem.score
+	    return .GameOver
+	}
+
+	update_ship(mem)
+	update_projectile(mem)
+	update_asteroids(mem)
 
 
 	// Drawing
@@ -282,6 +292,36 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 }
 
 scene_game_over :: proc(mem: ^GameMemory) -> Scene {
+
+    for !rl.WindowShouldClose() {
+
+	if rl.IsKeyPressed(.ENTER) || rl.IsKeyPressed(.SPACE) {
+	    reset_game(mem)
+	    return .Menu
+	}
+
+
+	update_asteroids(mem)
+
+	rl.BeginDrawing()
+	defer rl.EndDrawing()
+
+	gameover_str := cstring("Game Over")
+	gameover_width := rl.MeasureText(gameover_str, 36)
+	rl.DrawText("Game Over", CENTER_X - (gameover_width / 2), CENTER_Y, 36, rl.WHITE)
+
+	menu_str := cstring("Press Enter To Restart")
+	menu_width := rl.MeasureText(menu_str, 26)
+	rl.DrawText("Press Enter To Restart", CENTER_X - (menu_width / 2), CENTER_Y + 40, 26, rl.WHITE)
+	
+	score_str := fmt.ctprintf("%02d", mem.score)
+	score_str_width := rl.MeasureText(score_str, 24)
+	rl.DrawText(score_str, WINDOW_WIDTH * 0.2 - (score_str_width / 2), 10, 24, rl.WHITE)
+
+	high_score_str := fmt.ctprintf("%02d", mem.high_score)
+	hs_str_width := rl.MeasureText(high_score_str, 14)
+	rl.DrawText(high_score_str, CENTER_X - (hs_str_width / 2), 10, 14, rl.WHITE)
+    }
     return .GameOver
 }
 
@@ -329,55 +369,109 @@ split_asteroid :: proc(mem: ^GameMemory, idx: int) {
     
     switch asteroid.type {
     case .BIG:
+	mem.score += 50
         for _ in 0..<2 {
             new_asteroid := create_asteroid(asteroid.position, .MEDIUM)
             append(&mem.asteroids, new_asteroid)
         }
     case .MEDIUM:
+	mem.score += 100
         for _ in 0..<2 {
             new_asteroid := create_asteroid(asteroid.position, .SMALL)
             append(&mem.asteroids, new_asteroid)
         }
     case .SMALL:
+	mem.score += 200
         break
     }
     
     ordered_remove(&mem.asteroids, idx)
 }
 
-line_segments_intersect :: proc(a1, a2, b1, b2: rl.Vector2) -> bool {
-    cross := proc(v1, v2: rl.Vector2) -> f32 {
-        return v1.x * v2.y - v1.y * v2.x
+check_collision_asteroid_projectile :: proc(asteroid: ^Asteroid, projectile: ^Projectile) -> bool {
+    world_vertices := make([dynamic]rl.Vector2, context.temp_allocator)
+    for v in asteroid.vertices {
+        append(&world_vertices, asteroid.position + v)
     }
 
-    d1 := cross(b2 - b1, a1 - b1)
-    d2 := cross(b2 - b1, a2 - b1)
-    d3 := cross(a2 - a1, b1 - a1)
-    d4 := cross(a2 - a1, b2 - a1)
+    projectile_next_pos := projectile.position + (projectile.velocity * rl.GetFrameTime())
 
-    return (d1 * d2 < 0) && (d3 * d4 < 0)
-}
-
-check_collision :: proc(p: rl.Vector2, p_vel: rl.Vector2, a: ^Asteroid) -> bool {
-    bullet_radius : f32 = 2.0  // Assuming bullet is a small circle; adjust as needed
-
-    // Check if bullet center is near any asteroid vertex or edge
-    for i in 0..<len(a.vertices) {
-        v1 := a.position + a.vertices[i]
-        v2 := a.position + a.vertices[(i + 1) % len(a.vertices)] // Wrap around for the last to first vertex
-
-        // Check if bullet center is close to any vertex
-        if rl.Vector2Distance(p, v1) <= bullet_radius || rl.Vector2Distance(p, v2) <= bullet_radius {
-            return true
-        }
-
-        // Check if bullet intersects with line segment
-        if line_segments_intersect(p, p + p_vel * rl.GetFrameTime(), v1, v2) {
+    for i in 0..<len(world_vertices) {
+        v1 := world_vertices[i]
+        v2 := world_vertices[(i + 1) % len(world_vertices)]
+        if line_segment_intersection(projectile.position, projectile_next_pos, v1, v2) {
             return true
         }
     }
 
     return false
+}
+
+check_collision_ship_asteroid :: proc(ship: ^Ship, asteroid: ^Asteroid) -> bool {
+    ship_vertices := make([dynamic]rl.Vector2, context.temp_allocator)
+    for v in SHIP_LINES {
+        append(&ship_vertices, ship.position + rl.Vector2Rotate(v * SCALE, ship.rotation))
+    }
+
+    asteroid_vertices := make([dynamic]rl.Vector2, context.temp_allocator)
+    for v in asteroid.vertices {
+        append(&asteroid_vertices, asteroid.position + (v * asteroid.size))
+    }
+
+    // Check if any vertex of one shape is inside the other
+    for v in ship_vertices {
+        if point_in_polygon(v, asteroid_vertices[:]) {
+            return true
+        }
+    }
+    for v in asteroid_vertices {
+        if point_in_polygon(v, ship_vertices[:]) {
+            return true
+        }
+    }
+
+    // Check for edge intersections
+    for i in 0..<len(ship_vertices) {
+        for j in 0..<len(asteroid_vertices) {
+            if line_segment_intersection(
+                ship_vertices[i],
+                ship_vertices[(i + 1) % len(ship_vertices)],
+                asteroid_vertices[j],
+                asteroid_vertices[(j + 1) % len(asteroid_vertices)]
+            ) {
+                return true
+            }
+        }
+    }
+
+    return false
+}
+
+point_in_polygon :: proc(point: rl.Vector2, vertices: []rl.Vector2) -> bool {
+    c := false
+    nvert := len(vertices)
+    j := nvert - 1
+    for i in 0..<nvert {
+        if ((vertices[i].y > point.y) != (vertices[j].y > point.y)) &&
+           (point.x < (vertices[j].x - vertices[i].x) * (point.y - vertices[i].y) / (vertices[j].y - vertices[i].y) + vertices[i].x) {
+            c = !c
+        }
+        j = i
+    }
+    return c
+}
+
+line_segment_intersection :: proc(a1, a2, b1, b2: rl.Vector2) -> bool {
+    cross :: proc(v1, v2: rl.Vector2) -> f32 {
+        return v1.x * v2.y - v1.y * v2.x
+    }
+
+    d1 := cross(b2 - b1, a1- b1)
+    d2 := cross(b2 - b1, a2 - b1)
+    d3 := cross(a2 - a1, b1 - a1)
+    d4 := cross(a2 - a1, b2 - a1)
+
+    return (d1 * d2 < 0) && (d3 * d4 < 0)
 }
 
 update_ship :: proc(mem: ^GameMemory) {
@@ -397,6 +491,23 @@ update_ship :: proc(mem: ^GameMemory) {
     }
     else if mem.ship.position.y > WINDOW_HEIGHT {
 	mem.ship.position.y = 0
+    }
+
+    // Check if ship should be respawned
+    if mem.ship.is_dead {
+        current_time := rl.GetTime()
+        if mem.ship.death_time == 0 {
+	    if mem.lives >= 0 { mem.lives -= 1 }
+            mem.ship.death_time = current_time // Record the time of death
+	    rl.PlaySound(sound.explode)
+        } else if current_time - mem.ship.death_time >= 3.0 {
+            // Respawn after 3 seconds
+            mem.ship.position = {CENTER_X, CENTER_Y}
+            mem.ship.velocity = {0, 0}
+            mem.ship.rotation = math.PI
+            mem.ship.is_dead = false
+            mem.ship.death_time = 0 
+        }
     }
 }
 
@@ -422,12 +533,12 @@ update_projectile :: proc(mem: ^GameMemory) {
         }
 	else {
 	    for &a, idx in mem.asteroids {
-                if check_collision(old_position, p.velocity, &a) {
-                    append(&to_remove, i)
-                    split_asteroid(mem, idx)
-                    break 
-                }
-            }
+	    	if !p.did_remove && check_collision_asteroid_projectile(&a, p) {
+		    p.did_remove = true
+		    split_asteroid(mem, idx)
+		    break
+		}
+	    }
 	}
     }
 
@@ -438,7 +549,7 @@ update_projectile :: proc(mem: ^GameMemory) {
 }
 
 update_asteroids :: proc(mem: ^GameMemory) {
-    for &asteroid in &mem.asteroids {
+    for &asteroid, idx in &mem.asteroids {
 	// Update position based on velocity
 	asteroid.position.x += asteroid.velocity.x * rl.GetFrameTime()
 	asteroid.position.y += asteroid.velocity.y * rl.GetFrameTime()
@@ -458,7 +569,13 @@ update_asteroids :: proc(mem: ^GameMemory) {
         } else if asteroid.position.y - half_size > WINDOW_HEIGHT {
             asteroid.position.y = -half_size + (asteroid.position.y - half_size - WINDOW_HEIGHT)
         }
+
+	if !mem.ship.is_dead && check_collision_ship_asteroid(&mem.ship, &asteroid) {
+	    mem.ship.is_dead = true
+	    split_asteroid(mem, idx)
+	}
     }
+
 }
 
 // -------- Rendering ----------
