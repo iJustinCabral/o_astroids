@@ -107,6 +107,8 @@ Add alien sound FX
 
 *Make ship shoot small projectiles  
 *Make ship bullets wrap around the screen  
+*Add shooting sound FX  
+*Add movement sound FX  
 
 Draw Asteroids  
 Add random astroids to start menu  
@@ -119,8 +121,6 @@ Implement random movement for alien
 Make alient shoot in random direction  
 Implement a high score system  
 Handle game over  
-Add shooting sound FX  
-Add movment sound FX  
 Add death sound FX  
 Add alien sound FX  
 

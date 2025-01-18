@@ -52,9 +52,9 @@ Ship :: struct {
     is_dead: bool,
 }
 
-Astroid :: struct {
+Asteroid :: struct {
     using entity: Entity,
-    type: AstroidType,
+    type: AsteroidType,
     size: f32,
     score: int,
     speed: int,
@@ -62,20 +62,10 @@ Astroid :: struct {
     vertices: []rl.Vector2
 }
 
-AstroidType :: enum {
+AsteroidType :: enum {
     BIG,
     MEDIUM,
     SMALL
-}
-
-Particle :: struct {
-    using entity: Entity,
-    ttl: f32,
-}
-
-ParticleType :: enum {
-    LINE,
-    DOT,
 }
 
 Projectile :: struct {
@@ -87,7 +77,7 @@ Projectile :: struct {
 
 Sound :: struct {
     blaster: rl.Sound,
-    thurst: rl.Sound
+    thrust: rl.Sound
 }
 
 LineBuilder :: struct {
@@ -104,22 +94,26 @@ GameMemory :: struct {
     game_over: bool,
     frame: int,
     ship: Ship,
-    asteroids: [dynamic] Astroid,
+    asteroids: [dynamic] Asteroid,
     projectiles: [dynamic] Projectile,
-    particles: [dynamic] Particle
 }
 
-mem : GameMemory = GameMemory{}
+mem   := GameMemory{}
+sound := Sound{}
 
 main :: proc() {
-    rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Astroids")
+    rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Asteroids")
     rl.SetTargetFPS(60)
+    rl.InitAudioDevice()
 
     defer rl.CloseWindow()
+    defer rl.CloseAudioDevice()
     defer free_all(context.temp_allocator)
 
     // Init game state
     reset_game(&mem)
+    sound.blaster = rl.LoadSound("blaster.wav")
+    sound.thrust = rl.LoadSound("thrust.wav")
 
     for !rl.WindowShouldClose() {
 	switch mem.scene {
@@ -233,7 +227,7 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 		mem.ship.velocity += (direction * (rl.GetFrameTime() * SHIP_SPEED))
 		
 		if mem.frame % 2 == 0 {
-		// TODO: Play Sound when the ship moves
+		    rl.PlaySound(sound.thrust)	
 		}
 	    }
 
@@ -247,29 +241,13 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 
 	    if rl.IsKeyPressed(.SPACE) {
 		shoot_projectile(mem)
-	    }
-	    
-	    // Updates
-	    mem.ship.velocity *= (1.0 - DRAG)
-	    mem.ship.position += mem.ship.velocity - DRAG
-
-	    // Screen wrap the ship when it leaves the bounds
-	    if mem.ship.position.x < 0 {
-		mem.ship.position.x = WINDOW_WIDTH
-	    } 
-	    else if mem.ship.position.x > WINDOW_WIDTH {
-		mem.ship.position.x = 0
+		rl.PlaySound(sound.blaster)
 	    }
 
-	    if mem.ship.position.y < 0 {
-		mem.ship.position.y = WINDOW_HEIGHT
-	    }
-	    else if mem.ship.position.y > WINDOW_HEIGHT {
-		mem.ship.position.y = 0
-	    }
+	    update_ship(mem)
+	    update_projectile(mem)
 	}
 
-	update_projectile(mem)
 
 	// Drawing
 	rl.BeginDrawing()
@@ -297,6 +275,26 @@ scene_start :: proc(mem: ^GameMemory) -> Scene {
 
 scene_game_over :: proc(mem: ^GameMemory) -> Scene {
     return .GameOver
+}
+
+update_ship :: proc(mem: ^GameMemory) {
+    mem.ship.velocity *= (1.0 - DRAG)
+    mem.ship.position += mem.ship.velocity - DRAG
+
+    // Screen wrap the ship when it leaves the bounds
+    if mem.ship.position.x < 0 {
+	mem.ship.position.x = WINDOW_WIDTH
+    } 
+    else if mem.ship.position.x > WINDOW_WIDTH {
+	mem.ship.position.x = 0
+    }
+
+    if mem.ship.position.y < 0 {
+	mem.ship.position.y = WINDOW_HEIGHT
+    }
+    else if mem.ship.position.y > WINDOW_HEIGHT {
+	mem.ship.position.y = 0
+    }
 }
 
 update_projectile :: proc(mem: ^GameMemory) {
